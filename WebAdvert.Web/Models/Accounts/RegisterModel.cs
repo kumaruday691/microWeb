@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace WebAdvert.Web.Models.Accounts
 {
-    public class SignupModel
+    public class RegisterModel
     {
         [Required]
         [EmailAddress]
@@ -26,6 +26,10 @@ namespace WebAdvert.Web.Models.Accounts
         [Display(Name = "Confirm Password")]
         public string  ConfirmPassword { get; set; }
 
+        [Required]
+        [DataType(DataType.PhoneNumber)]
+        [Phone]
+        [Display(Name = "Phone Number")]
         public string PhoneNumber { get; set; }
     }
 }

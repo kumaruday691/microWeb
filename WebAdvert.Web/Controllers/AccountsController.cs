@@ -27,19 +27,57 @@ namespace WebAdvert.Web.Controllers
 
 
         // GET: /<controller>/
-        public async Task<IActionResult> Signup()
+        public async Task<IActionResult> Register()
         {
-            var model = new SignupModel();
+            var model = new RegisterModel();
+            return View(model);
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> Confirm()
+        {
+            var model = new ConfirmModel();
             return View(model);
         }
 
         [HttpPost]
-        public async Task<IActionResult> Signup(SignupModel model)
+        public async Task<IActionResult> Confirm(ConfirmModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var user = await _userManager.FindByEmailAsync(model.Email);
+                if (user == null)
+                {
+                    ModelState.AddModelError("Not Found", "User with this email not found");
+                    return View(model);
+                }
+
+                var result = await ((CognitoUserManager<CognitoUser>) _userManager).ConfirmSignUpAsync(user, model.Code, true).ConfigureAwait(false);
+                if (result.Succeeded)
+                {
+                    return RedirectToAction("Index", "Home");
+                }
+                else
+                {
+                    foreach (var item in result.Errors)
+                    {
+                        ModelState.AddModelError(item.Code,item.Description);
+                    }
+
+                    return View(model);
+                }
+            }
+
+            return View(model);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Register(RegisterModel model)
         {
             if(ModelState.IsValid)
             {
                 var user = _pool.GetUser(model.Email);
-                if(user != null)
+                if(user.Status != null)
                 {
                     ModelState.AddModelError("User Exists", "User with this mail already exists");
                     return View(model);
@@ -50,11 +88,49 @@ namespace WebAdvert.Web.Controllers
                 var createdUser = await _userManager.CreateAsync(user, model.Password).ConfigureAwait(false);
                 if (createdUser.Succeeded)
                 {
-                    RedirectToAction("Confirm");
+                   return RedirectToAction("Confirm");
+                }
+                else
+                {
+                    foreach (var item in createdUser.Errors)
+                    {
+                        ModelState.AddModelError(item.Code,item.Description);
+                    }
+
+                    return View(model);
                 }
             }
 
             return View();
+        }
+
+        [HttpGet]
+        public IActionResult Login()
+        {
+            var loginModel = new LoginModel();
+            return View(loginModel);
+        }
+
+        [HttpPost]
+        [ActionName("Login")]
+        public async Task<IActionResult> LoginPost(LoginModel model)
+        {
+            if (ModelState.IsValid)
+            {
+                var result = await _signInManager.PasswordSignInAsync(model.Email,
+                    model.Password, model.RememberMe, false).ConfigureAwait(false);
+                if (result.Succeeded)
+                    return RedirectToAction("Index", "Home");
+                ModelState.AddModelError("LoginError", "Email and password do not match");
+            }
+
+            return View("Login", model);
+        }
+
+        public async Task<IActionResult> Signout()
+        {
+            if (User.Identity.IsAuthenticated) await _signInManager.SignOutAsync().ConfigureAwait(false);
+            return RedirectToAction("Login");
         }
     }
 }
